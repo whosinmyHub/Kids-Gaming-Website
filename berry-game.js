@@ -1,205 +1,229 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
-import edu.stanford.nlp.ling.CoreLabel;
-import edu.stanford.nlp.semgraph.SemanticGraph;
-import edu.stanford.nlp.simple.Document;
-import edu.stanford.nlp.simple.Sentence;
+const canvas = document.getElementById ("gameArea");
+const ctx = canvas.getContext ("2d");
 
-class Rules_FSA implements Runnable{
-	private Document inputDoc;
-	private static Map<String, Map<String, String>> automaton;
+const scoreBoard = document.getElementById ("scoreBoard");
+const points = document.getElementById ("points");
 
-	
-	Rules_FSA () {
-		
-	}
-	Rules_FSA (Document doc) {
-		inputDoc = doc;
-	}
-	
-	static {
-		automaton = new HashMap<>();
-		addTransition ("CC-[0-9]+", "(PRP-[0-9]+, VB.-[0-9]+)|(VB.-[0-9]+, PRP-[0-9]+)", ",");
-		addTransition ("IN-[0-9]+", "(PRP-[0-9]+, VB.-[0-9]+)|(VB.-[0-9]+, PRP-[0-9]+)", ",");
-		
-	}
-	
-	private static void addTransition (String currentState, String input, String output) {
-		automaton.computeIfAbsent (currentState, k -> new HashMap<>()).put(input, output);
+const basket = document.getElementById ("basket");
 
-	
-	}
-	
-	// returns a list of string[] containing the sentence number in the paragraph/text, the position to insert the period, and the output char (which will be a period)
-	List<String[][]> findMatchingKeysPeriod () {
-		
-		AtomicInteger sentCounter = new AtomicInteger();
-		List<String[][]> pos = new ArrayList<>();
-		
-		for (Sentence sent : inputDoc.sentences()) {
-			
-			String dependencies = sent.dependencyGraph().toDotFormat();
+const blueberry = document.getElementById ("blueberry");
+const strawberry = document.getElementById ("strawberry");
 
-			String[][] temp = Arrays.stream(dependencies.split(";"))
-			.filter(dep -> dep.contains("parataxis"))
-			.map(dep -> { 
-				String str = dep.split("-> N_")[1]; 
-				int endPos = str.indexOf("[");
-				
-				int numInSentence = Integer.parseInt(str.substring(0, endPos - 1)) - 2;
-				String positionToInsertPeriod = sent.tokens().get(numInSentence).beginPosition() + "";
+let x = 0; 
+let y = 0;
+let speed = 10;
 
-				String output = ".";
-				String[] ret = {sentCounter.toString(), positionToInsertPeriod, output};
-				
-				return ret;
-				})
-			.toArray(String[][]::new);
-			
-			pos.add(temp);
-			
-			sentCounter.incrementAndGet();			
-		}
-		
-		return pos;
-	}
-	
-	List<String[][]> findMatchingKeysPeriodSent (Sentence sent, int sentCounter) {
+let upPressed = false;
+let downPressed = false;
+let leftPressed = false;
+let rightPressed = false;
 
-		List<String[][]> pos = new ArrayList<>();
-					
-		String dependencies = sent.dependencyGraph().toDotFormat();
 
-		String[][] temp = Arrays.stream(dependencies.split(";"))
-								.parallel()
-								.filter(dep -> dep.contains("parataxis"))
-								.map(dep -> { 
-									String str = dep.split("-> N_")[1]; 
-									int endPos = str.indexOf("[");
-									
-									int numInSentence = Integer.parseInt(str.substring(0, endPos - 1)) - 2;
-									String positionToInsertPeriod = sent.tokens().get(numInSentence).beginPosition() + "";
-						
-									String output = ".";
-									String[] ret = {sentCounter + "", positionToInsertPeriod, output};
-									
-									return ret;
-									})
-								.toArray(String[][]::new);
-		
-		pos.add(temp);			
-		
-		
-		return pos;
-	}
-	
-	// returns a list where every even index is the sentence index & every odd index is the position in that sentence to insert the comma
-	 List<String[]> findMatchingKeysComma () {
-		List<String[]> positions = new ArrayList<>();
-		
-		AtomicInteger sentCounter = new AtomicInteger();
-		for (Sentence sent : inputDoc.sentences()) {
-			
-			List<CoreLabel> list = sent.parse().taggedLabeledYield();
-
-			for (int i = 0; i < list.size () - 2; i++) {
-				
-				if (!list.get(i).value().equals(",")) {
-					
-					var positionAndChar = computeNextState (list.get(i).toString (), list.get(i+1) + ", " + list.get(i+2));
-					int numInSentence = 0;
-					String punc = "";
-					
-					if (positionAndChar.length != 0) {
-						numInSentence = Integer.parseInt (positionAndChar[0][0]);
-						punc = positionAndChar[0][1];
-					}
-					
-					if (numInSentence != 0) {
-						String[] pos = new String[3];
-						
-						String positionToInsertComma = sent.tokens().get(numInSentence).beginPosition() + "";
-						
-						pos[0] = sentCounter + "";
-						pos[1] = positionToInsertComma;
-						pos[2] = punc;
-						
-						positions.add(pos);
-					}
-				}
-			}
-			
-			sentCounter.incrementAndGet();
-		}
-		return positions;
-	}
-	
-	
-	// returns a list where every even index is the sentence index & every odd index is the position in that sentence to insert the comma
-		public List<String[]> findMatchingKeysCommaSent (Sentence sent, int sentCounter) {
-			List<String[]> positions = new ArrayList<>();
-							
-			List<CoreLabel> list = sent.parse().taggedLabeledYield();
-
-			for (int i = 0; i < list.size () - 2; i++) {
-				
-				if (!list.get(i).value().equals(",")) {
-					
-					var positionAndChar = computeNextState (list.get(i).toString (), list.get(i+1) + ", " + list.get(i+2));
-					int numInSentence = 0;
-					String punc = "";
-					
-					if (positionAndChar.length != 0) {
-						numInSentence = Integer.parseInt (positionAndChar[0][0]);
-						punc = positionAndChar[0][1];
-					}
-					
-					if (numInSentence != 0) {
-						String[] pos = new String[3];
-						
-						String positionToInsertComma = sent.tokens().get(numInSentence).beginPosition() + "";
-						
-						pos[0] = sentCounter + "";
-						pos[1] = positionToInsertComma;
-						pos[2] = punc;
-						
-						positions.add(pos);
-					}
-				}
-			}
-							
-			return positions;
-		}
-	
-	// returns numInSentence, ex: currentState = CC-9 will return 9
-	public String[][] computeNextState (String currentState, String input) {
-		// Search if a key (rule) exists
-		
-		return automaton.keySet().parallelStream()
-			.filter(key -> currentState.matches(key))
-			.map(key -> automaton.get(key))
-			.filter(value -> input.matches(value.keySet().iterator().next()))
-			
-			// return a pair containing the place value in the sentence to put the output String & the output String (the punctuation String to insert)
-			.map (value -> 
-				{ 
-					String output = value.get(value.keySet().iterator().next()); 
-					String[] pair = { currentState.substring(currentState.length() - 1), output }; 
-					return pair; 
-				} )
-			.toArray(String[][]::new);
-		
-	}
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		
-	}
-	
-	
+//Game Loop
+function drawGame () {
+requestAnimationFrame (drawGame);
+clearScreen ();
+inputs ();
+boundaryCheck ();
+generateBerries (performance.now ());
+managePoints (performance.now ());
+drawBlob ();
 }
+
+function clearScreen () {
+    //game Area
+    ctx.fillStyle = "pink";
+    ctx.fillRect (0,0,canvas.clientWidth, canvas.clientHeight);
+}
+
+function inputs () {
+    if (upPressed) {
+        y -= speed;
+    }
+    if (downPressed) {
+        y = y + speed;
+    }
+    if (leftPressed) {
+        x -= speed;
+    }
+    if (rightPressed) {
+        x += speed;
+    }
+}
+
+function boundaryCheck () {
+
+    //up boundary
+    if (y < 0)
+        y = 0;
+
+    //down boundary
+    if (y > 480)
+        y = 480;
+
+    //left boundary
+    if (x < 0)
+        x = 0;
+
+    //right boundary
+    if (x > 760)
+        x = 760;
+}
+function drawBlob () {
+    basket.style.left = x + "px";
+    basket.style.top = y + "px";
+}
+
+document.body.addEventListener ('keydown', keyPush);
+document.body.addEventListener ('keyup', keyRelease);
+
+function keyPush (event) {
+    if (event.keyCode == 38 || event.keyCode == 87) 
+        upPressed = true;
+
+    if (event.keyCode == 40 || event.keyCode == 83) 
+        downPressed = true;
+
+    if (event.keyCode == 37 || event.keyCode == 65) 
+        leftPressed = true;
+
+    if (event.keyCode == 39 || event.keyCode == 68) 
+        rightPressed = true;
+    
+}
+function keyRelease (event) {
+    if (event.keyCode == 38 || event.keyCode == 87) 
+        upPressed = false;
+
+    if (event.keyCode == 40 || event.keyCode == 83) 
+        downPressed = false;
+
+    if (event.keyCode == 37 || event.keyCode == 65) 
+        leftPressed = false;
+
+    if (event.keyCode == 39 || event.keyCode == 68) 
+        rightPressed = false;
+    
+}
+
+/*
+* sleep measures if a specific amount of time has passed
+*
+* parameter amountOfTime: the amount of time desired to measure 
+* parameter timestamp: the clock/timestamp provided by requestAnimationFrame to measure against
+*
+* moveDelay: increases by 'amountOfTime' each time the function returns true 
+*
+* returns whether the amountOfTime has passed by comparing it to the clock/timestamp
+*/
+let moveDelay = 0;
+function sleep (amountOfTime, timestamp) {
+    check = (timestamp - moveDelay) >= amountOfTime; 
+
+    if (check)
+        moveDelay = timestamp;
+
+    return check;
+}
+
+/*
+* generateBerries moves the berry elements to a random spot on the screen every X seconds
+*
+* parameter timestamp: the clock/timestamp provided by requestAnimationFrame to pass to sleep
+*
+*/
+function generateBerries(timestamp) {
+    if (sleep (3000, timestamp)) {
+        blueberry.style.left = randomNumberX() + "px";
+        blueberry.style.top = randomNumberY() + "px";
+        
+        strawberry.style.left = randomNumberX () + "px";
+        strawberry.style.top = randomNumberY () + "px";
+    }
+}
+
+/*
+* randomNumberY generates a random number between a min and max
+*
+* returns a random number to be used as the Y-coordinate
+*/
+function randomNumberY () {
+    minY = 0;
+    maxY = 480;
+
+    //https://stackoverflow.com/questions/71327425/best-choice-for-javascript-random-number-generator
+    randomY = Math.floor (Math.random () * (maxY - minY + 1)) + minY;
+    return randomY;
+
+}
+
+/*
+* randomNumberX generates a random number between a min and max
+*
+* returns a random number to be used as the X-coordinate
+*/
+function randomNumberX() {
+    minX = 0;
+    maxX = 760;
+
+    //https://stackoverflow.com/questions/71327425/best-choice-for-javascript-random-number-generator
+    randomX = Math.floor (Math.random () * (maxX - minX + 1)) + minX;
+    return randomX;
+}
+
+/*
+* managePoints updates the points when the basket overlaps with the berries
+*
+*/
+function managePoints (timestamp) {
+
+    // update points is basket overlapped with blueberry
+    if (checkOverlap (blueberry))
+    {
+        //update points
+        points.textContent = parseInt (points.textContent) + 1;
+
+        //move blueberry out of screen to avoid points continually updating
+        blueberry.style.top = 800 + "px";
+        blueberry.style.left = 500 + "px";  
+       
+    }
+
+    // update points is basket overlapped with strawberry
+    if (checkOverlap (strawberry)) 
+    {
+        //update points
+        points.textContent = parseInt (points.textContent) + 1;
+
+        //move strawberry out of screen to avoid points continually updating
+        strawberry.style.top = 800 + "px";
+        strawberry.style.left = 500 + "px"; 
+       
+    }
+     
+}
+
+/*
+* checkOverlap checks if the basket is overlapping with the parameter element
+*
+* parameter element: the element to check if the basket overlapped it
+*
+* returns a boolean value whether there's overlap (true) or not (false)
+*/
+function checkOverlap (element) {
+    // DOMRect objects for each of the elements providing information about sizes & position relative to viewport
+    let basketPos = basket.getBoundingClientRect ();
+    let elementPos = element.getBoundingClientRect ();
+
+    // check all the conditions where basket & element don't intersect 
+    let notOverlap = basketPos.right < elementPos.left
+    || basketPos.left > elementPos.right
+    || basketPos.bottom < elementPos.top
+    || basketPos.top > elementPos.bottom;
+
+    // negate conditions where the overlap can't happen to check if there's overlap
+    return !notOverlap;
+}
+drawGame ();
+
