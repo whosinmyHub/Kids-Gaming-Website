@@ -12,7 +12,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            /*overflow: hidden; /*Hide scrollbars*/
+            overflow: hidden;
 
         }
         h1 {
@@ -84,6 +84,14 @@
             left: 16%;
             font-size: 22px;
         }
+
+        .modes {
+            position: absolute;
+            top: 50%;
+            left: 25%;
+        }
+       
+       
       
     </style>
 </head>
@@ -96,6 +104,13 @@
 
         <img id="blueberry" src="/images/blueberry.png">
         <img id="strawberry" src="/images/strawberry.png">
+
+        <div class="modes">
+            <button id="play-mode">No Math Mode</button>
+            <button id="easy-mode">Easy Math Mode</button>
+            <button id="medium-mode">Medium Math Mode</button>
+            <button id="hard-mode">Hard Math Mode</button>
+        </div>
         
     </div>
 
@@ -104,10 +119,7 @@
         <div id="points">0</div>
     </div>
 
-    <script>
-        
-    </script>
+    <script type="module" src="berry-game.js"></script>
     
-    <script src="berry-game.js"></script>
 </body>
 </html>
